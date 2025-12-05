@@ -1,0 +1,3 @@
+from .crud import DocumentCreateSerializer
+from .detail import DocumentDetailSerializer
+from .list import DocumentListSerializer,DocumentTagSerializer,DocumentTypeSerializer
