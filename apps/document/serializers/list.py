@@ -3,7 +3,8 @@ from rest_framework import serializers
 from apps.document.models import DocumentTag, DocumentType, Document
 from apps.company.models.company import Company, CompanyType
 
-from apps.company.serializers.company import CompanyTypeSerializer
+from apps.company.serializers.company import CompanyTypeSerializer, CompanyShortSerializer
+from apps.document.serializers.version import DocumentVersionShortSerializer
 
 
 class DocumentTagSerializer(serializers.ModelSerializer):
@@ -12,6 +13,11 @@ class DocumentTagSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class DocumentTypeShortSerializer(serializers.ModelSerializer):
+    model = DocumentType
+    fields = [
+        'id', 'name',
+    ]
 class DocumentTypeSerializer(serializers.ModelSerializer):
     aliases = DocumentTagSerializer(many=True, read_only=True)
     aliases_ids = serializers.PrimaryKeyRelatedField(
@@ -35,80 +41,36 @@ class DocumentTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = DocumentType
         fields = [
-            'id', 'name',
+            'id', 'name','slug',
             'aliases', 'aliases_ids',
             'applicable_company_types', 'applicable_company_type_ids'
         ]
 
 
 class DocumentListSerializer(serializers.ModelSerializer):
-    company_name = serializers.CharField(source='company.name', read_only=True)
+
+    company = CompanyShortSerializer(read_only=True)
     document_type_name = serializers.CharField(source='document_type.name', read_only=True)
-    uploaded_by_name = serializers.CharField(source='uploaded_by.get_full_name', read_only=True)
-    file_size_human = serializers.ReadOnlyField()
-    status = serializers.SerializerMethodField()
-    status_info = serializers.SerializerMethodField()
+
+    versions = serializers.SerializerMethodField()
+
     class Meta:
         model = Document
         fields = [
             'id',
             'name',
             'company',
-            'company_name',
             'document_type',
             'document_type_name',
-            'upload_date',
-            'uploaded_by',
-            'uploaded_by_name',
-            'status',
-            'get_status_info',
-            'file',
-            'file_size_human',
-            'comment'
+            'versions'
         ]
-        read_only_fields = ['upload_date', 'uploaded_by', 'file_size_human']
 
-    def get_status(self, obj):
-        if obj.approved:
-            return 'Утвержден'
-        elif obj.rejected:
-            return 'Отклонен'
-        else:
-            return 'На утверждении'
+    def get_versions(self, obj):
+        # Отдаём только версии, у которых on_approval=False
+        queryset = obj.versions.filter(on_approval=False).order_by('-version')
+        return DocumentVersionShortSerializer(queryset, many=True).data
 
-    def get_status_info(self, obj):
-        """Возвращает полную информацию о статусе для фронтенда"""
-        status_config = {
-            'approved': {
-                'label': 'Утвержден',
-                'color': 'text-green-500',
-                'icon': 'pi pi-check-circle',
 
-            },
-            'rejected': {
-                'label': 'Отклонен',
-                'color': 'text-red-900',
-                'icon': 'pi pi-times-circle',
 
-            },
-            'pending': {
-                'label': 'На утверждении',
-                'color': 'text-yellow-500',
-                'icon': 'pi pi-exclamation-triangle',
-            },
-            'missing': {
-                'label': 'Отсутствует',
-                'color': 'text-red-400',
-                'icon': 'pi pi-times-circle',
-            }
-        }
 
-        if obj.approved:
-            return status_config['approved']
-        elif obj.rejected:
-            return status_config['rejected']
-        elif obj.missing:
-            return status_config['missing']
-        else:
-            return status_config['pending']
 

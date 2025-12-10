@@ -11,7 +11,7 @@ class DocumentTagAdmin(admin.ModelAdmin):
 
 @admin.register(DocumentType)
 class DocumentTypeAdmin(admin.ModelAdmin):
-    list_display = ['name', 'aliases_display', 'applicable_companies_count']
+    list_display = ['name','slug', 'aliases_display', 'applicable_companies_count']
     search_fields = ['name', 'aliases__name']
     filter_horizontal = ['aliases', 'applicable_company_types']
     list_per_page = 20

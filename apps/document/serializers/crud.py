@@ -6,7 +6,7 @@ class DocumentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Document
         fields = [
-            'name', 'company', 'document_type', 'file', 'comment'
+            'name', 'company', 'document_type',
         ]
 
     def create(self, validated_data):

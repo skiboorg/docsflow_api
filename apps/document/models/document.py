@@ -8,7 +8,9 @@ from apps.document.models.tag_type import DocumentType
 
 User = get_user_model()
 
-
+class UploadedDocument(BaseModel):
+    file = models.FileField(upload_to='documents/%Y/%m/%d')
+    is_done = models.BooleanField(default=False, null=False)
 
 
 
@@ -19,6 +21,8 @@ class Document(BaseModel):
                                 related_name='documents',
                                 verbose_name='Компания')
     document_type = models.ForeignKey(DocumentType, on_delete=models.CASCADE,
+                                      blank=True,
+                                      null=True,
                                       verbose_name='Тип документа')
     created_by = models.ForeignKey(User, on_delete=models.CASCADE,
                                    related_name='created_documents',

@@ -1,27 +1,50 @@
+import django_filters
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
+from django_filters import rest_framework as filters
+from django_filters.rest_framework import DjangoFilterBackend
+
 from apps.company.serializers.company import *
-
-
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 
 from apps.document.models import Document
 
-
+class Pagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 10000
 
 class CompanyTypeViewSet(viewsets.ModelViewSet):
     queryset = CompanyType.objects.all()
     serializer_class = CompanyTypeSerializer
     pagination_class = None
 
+
+class CompanyFilter(filters.FilterSet):
+    q = django_filters.CharFilter(method='custom_filter', label="Search")
+
+    def custom_filter(self, queryset, name, value):
+        return queryset.filter(
+            Q(name__icontains=value) |
+            Q(inn__icontains=value)
+
+        )
+    class Meta:
+        model = Company
+        fields = [
+            'name',
+            'inn',
+        ]
+
 class CompanyViewSet(viewsets.ModelViewSet):
     queryset = Company.objects.all()
-    #permission_classes = [permissions.IsAuthenticated]
-
-    # def get_queryset(self):
-    #     return Company.objects.all().order_by('name')
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = Pagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = CompanyFilter
 
     def get_queryset(self):
         # Оптимизируем запросы с prefetch_related
@@ -31,6 +54,8 @@ class CompanyViewSet(viewsets.ModelViewSet):
                 queryset=Document.objects.select_related('document_type')
             )
         )
+
+
 
     def get_serializer_class(self):
         """Выбор сериализатора в зависимости от действия"""

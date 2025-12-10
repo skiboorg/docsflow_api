@@ -34,13 +34,13 @@ class VersionManager:
         Форматирует размер файла в человеко-читаемый вид
         """
         if size_bytes == 0:
-            return "0 B"
+            return "0 Б"
 
-        for unit in ['B', 'KB', 'MB', 'GB']:
+        for unit in ['Б', 'Кб', 'Мб', 'Гб']:
             if size_bytes < 1024.0:
                 return f"{size_bytes:.1f} {unit}"
             size_bytes /= 1024.0
-        return f"{size_bytes:.1f} TB"
+        return f"{size_bytes:.1f} Тб"
 
     @staticmethod
     def get_version_status(version: DocumentVersion) -> str:

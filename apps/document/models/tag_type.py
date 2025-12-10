@@ -15,6 +15,7 @@ class DocumentTag(models.Model):
 
 class DocumentType(models.Model):
     name = models.CharField('Название типа документа', max_length=255)
+    slug = models.CharField('Код типа документа', max_length=255, null=True)
     aliases = models.ManyToManyField(DocumentTag,
                                      blank=True,
                                      verbose_name='Алиасы (теги)'

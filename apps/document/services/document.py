@@ -1,304 +1,125 @@
-from typing import Optional, List, Dict, Any
-from datetime import date
-
 from django.contrib.auth import get_user_model
-
-from apps.document.models import Document,DocumentVersion, DocumentType
-from apps.company.models import Company
-
 User = get_user_model()
 
-class DocumentService:
-    """Сервисный класс для работы с документами и версиями"""
+import os
+import tempfile
+import zipfile
+import rarfile
+from pathlib import Path
+from django.core.files import File
 
-    def __init__(self, document: Optional[Document] = None):
-        self.document = document
+from apps.company.models import Company, CompanyType
+from apps.document.models import DocumentType, Document, DocumentVersion, UploadedDocument
 
-    @classmethod
-    def create_document(cls, name: str, company: Company, document_type: DocumentType,
-                        created_by: User, description: str = '') -> Document:
-        """
-        Создает новый документ
-        """
-        document = Document.objects.create(
-            name=name,
+from apps.document.services.version import VersionManager
+
+class ArchiveDocumentImportService:
+
+    def __init__(self, uploaded_document: UploadedDocument, uploaded_by_id:int):
+        self.uploaded_document = uploaded_document
+        self.uploaded_by_id = uploaded_by_id
+
+    def process(self):
+        """Основной вход — распаковываем и обрабатываем файлы."""
+        temp_dir = tempfile.mkdtemp()
+
+        # Распаковка
+        extracted_files_dir = self._extract_archive(temp_dir)
+
+        # Обработка файлов
+        for file_path in Path(extracted_files_dir).rglob("*"):
+            if file_path.is_file():
+                self._process_file(file_path)
+
+    # ---------------------------------------------
+    # Распаковка архива
+    # ---------------------------------------------
+    def _extract_archive(self, destination: str) -> str:
+        file_path = self.uploaded_document.file.path
+
+        if zipfile.is_zipfile(file_path):
+            with zipfile.ZipFile(file_path) as z:
+                z.extractall(destination)
+            return destination
+
+        if rarfile.is_rarfile(file_path):
+            with rarfile.RarFile(file_path) as r:
+                r.extractall(destination)
+            return destination
+
+        raise ValueError("Формат архива не поддерживается (только ZIP или RAR)")
+
+    # ---------------------------------------------
+    # Парсинг файлов
+    # ---------------------------------------------
+    def _process_file(self, file_path: Path):
+        """Ожидается формат ИНН_document_type_slug.ext"""
+        name = file_path.stem  # без расширения
+
+        if "_" not in name:
+            print(f"⚠ Файл пропущен: {name} — нет разделителя '_'")
+            return
+
+        inn, doc_slug = name.split("_", 1)
+
+        company = self._get_or_create_company(inn)
+        doc_type = self._get_document_type(doc_slug)
+
+        # if not doc_type:
+        #     print(f"⚠ document_type_slug '{doc_slug}' не найден")
+        #     return
+
+        # Document
+        document, _ = Document.objects.get_or_create(
             company=company,
-            document_type=document_type,
-            created_by=created_by,
-            description=description
+            document_type=doc_type,
+            created_by=User.objects.get(id=self.uploaded_by_id )
         )
-        return document
+        version_manager = VersionManager()
+        # Создаем версию
+        with open(file_path, "rb") as f:
+            version = DocumentVersion.objects.create(
+                document=document,
+                version=version_manager.calculate_next_version(document),
+                file=File(f, name=file_path.name),
+                uploaded_by=User.objects.get(id=self.uploaded_by_id )
+            )
 
-    def create_version(self, uploaded_by: User, file=None, comment: str = '',
-                       valid_from: Optional[date] = None, valid_until: Optional[date] = None) -> DocumentVersion:
-        """
-        Создает новую версию документа
-        """
-        if not self.document:
-            raise ValueError("Документ не установлен")
+        print(f"✔ Документ создан: {file_path.name}")
 
-        # Получаем номер следующей версии
-        last_version = self.get_latest_version()
-        next_version = last_version.version + 1 if last_version else 1
+    # ---------------------------------------------
+    # Company
+    # ---------------------------------------------
+    def _get_or_create_company(self, inn: str) -> Company:
+        company = Company.objects.filter(inn=inn).first()
+        if company:
+            return company
 
-        # Создаем новую версию
-        version = DocumentVersion.objects.create(
-            document=self.document,
-            version=next_version,
-            file=file,
-            uploaded_by=uploaded_by,
-            comment=comment,
-            valid_from=valid_from,
-            valid_until=valid_until,
-            on_approval=bool(file),  # Если есть файл - на утверждении, если нет - отсутствует
-            missing=not bool(file)
+        # ---------- Заглушка для запроса во внешний API ----------
+        # В реальном проекте здесь будет запрос:
+        # data = external_api.get_company_by_inn(inn)
+        # name = data["name"]
+        # director = data["director"]
+        # основание = data["founding_date"]
+        #
+        # Пока создаем компанию с минимальными данными:
+        name = f"Компания {inn}"
+        director = "Неизвестен"
+        founding_date = "2000-01-01"
+
+        company_type = CompanyType.objects.first()
+
+        return Company.objects.create(
+            inn=inn,
+            name=name,
+            director_name=director,
+            founding_date=founding_date,
+            company_type=company_type,
+            authorized_capital=0
         )
 
-        return version
-
-    def approve_version(self, version_number: int, reviewed_by: User,
-                        rejection_reason: str = '') -> DocumentVersion:
-        """
-        Утверждает или отклоняет версию документа
-        """
-        if not self.document:
-            raise ValueError("Документ не установлен")
-
-        version = self.get_version(version_number)
-        if not version:
-            raise ValueError(f"Версия {version_number} не найдена")
-
-        if rejection_reason:
-            # Отклонение версии
-            version.rejected = True
-            version.on_approval = False
-            version.approved = False
-            version.rejection_reason = rejection_reason
-            version.reviewed_by = reviewed_by
-            version.review_date = date.today()
-        else:
-            # Утверждение версии
-            version.approved = True
-            version.on_approval = False
-            version.rejected = False
-            version.reviewed_by = reviewed_by
-            version.review_date = date.today()
-
-            # Снимаем флаг текущей версии у других версий
-            DocumentVersion.objects.filter(
-                document=self.document,
-                is_current=True
-            ).update(is_current=False)
-
-            version.is_current = True
-
-        version.save()
-        return version
-
-    def get_current_version(self) -> Optional[DocumentVersion]:
-        """
-        Возвращает текущую утвержденную версию
-        """
-        if not self.document:
-            return None
-
-        return self.document.versions.filter(
-            is_current=True,
-            is_active=True,
-            approved=True
-        ).first()
-
-    def get_latest_version(self) -> Optional[DocumentVersion]:
-        """
-        Возвращает последнюю версию (любого статуса)
-        """
-        if not self.document:
-            return None
-
-        return self.document.versions.filter(
-            is_active=True
-        ).order_by('-version').first()
-
-    def get_version(self, version_number: int) -> Optional[DocumentVersion]:
-        """
-        Возвращает конкретную версию по номеру
-        """
-        if not self.document:
-            return None
-
-        return self.document.versions.filter(
-            version=version_number,
-            is_active=True
-        ).first()
-
-    def get_valid_version_on_date(self, target_date: date) -> Optional[DocumentVersion]:
-        """
-        Возвращает версию, действительную на указанную дату
-        """
-        if not self.document:
-            return None
-
-        # Ищем версию, которая была утверждена до target_date
-        # и срок действия которой включает target_date
-        return self.document.versions.filter(
-            approved=True,
-            is_active=True,
-            valid_from__lte=target_date,
-            valid_until__gte=target_date
-        ).order_by('-version').first()
-
-    def get_all_versions(self, include_inactive: bool = False) -> List[DocumentVersion]:
-        """
-        Возвращает все версии документа
-        """
-        if not self.document:
-            return []
-
-        queryset = self.document.versions.all()
-        if not include_inactive:
-            queryset = queryset.filter(is_active=True)
-
-        return list(queryset.order_by('-version'))
-
-    def get_versions_by_status(self, status: str) -> List[DocumentVersion]:
-        """
-        Возвращает версии по статусу
-        """
-        if not self.document:
-            return []
-
-        status_filters = {
-            'approved': {'approved': True},
-            'rejected': {'rejected': True},
-            'missing': {'missing': True},
-            'on_approval': {'on_approval': True},
-        }
-
-        if status not in status_filters:
-            raise ValueError(f"Неизвестный статус: {status}")
-
-        return list(self.document.versions.filter(
-            is_active=True,
-            **status_filters[status]
-        ).order_by('-version'))
-
-    def update_version(self, version_number: int, **kwargs) -> DocumentVersion:
-        """
-        Обновляет версию документа
-        """
-        if not self.document:
-            raise ValueError("Документ не установлен")
-
-        version = self.get_version(version_number)
-        if not version:
-            raise ValueError(f"Версия {version_number} не найдена")
-
-        # Запрещаем обновление утвержденных версий
-        if version.approved and not kwargs.get('force', False):
-            raise ValueError("Нельзя изменять утвержденные версии")
-
-        # Обновляем поля
-        for field, value in kwargs.items():
-            if field == 'file' and value:
-                version.file = value
-                version.missing = False
-                version.on_approval = True
-            elif field == 'valid_from':
-                version.valid_from = value
-            elif field == 'valid_until':
-                version.valid_until = value
-            elif field == 'comment':
-                version.comment = value
-            elif field not in ['force']:  # Игнорируем служебные поля
-                setattr(version, field, value)
-
-        version.save()
-        return version
-
-    def deactivate_version(self, version_number: int) -> DocumentVersion:
-        """
-        Деактивирует версию документа
-        """
-        if not self.document:
-            raise ValueError("Документ не установлен")
-
-        version = self.get_version(version_number)
-        if not version:
-            raise ValueError(f"Версия {version_number} не найдена")
-
-        if version.is_current:
-            raise ValueError("Нельзя деактивировать текущую версию")
-
-        version.is_active = False
-        version.save()
-        return version
-
-    def get_document_status_summary(self) -> Dict[str, Any]:
-        """
-        Возвращает сводку по статусам документа
-        """
-        if not self.document:
-            return {}
-
-        versions = self.document.versions.filter(is_active=True)
-
-        return {
-            'total_versions': versions.count(),
-            'approved_versions': versions.filter(approved=True).count(),
-            'rejected_versions': versions.filter(rejected=True).count(),
-            'pending_versions': versions.filter(on_approval=True).count(),
-            'missing_versions': versions.filter(missing=True).count(),
-            'current_version': self.get_current_version().version if self.get_current_version() else None,
-            'latest_version': self.get_latest_version().version if self.get_latest_version() else None,
-            'is_expired': self.is_document_expired(),
-        }
-
-    def is_document_expired(self) -> bool:
-        """
-        Проверяет, истек ли срок действия текущей версии
-        """
-        current_version = self.get_current_version()
-        if not current_version or not current_version.valid_until:
-            return False
-
-        return date.today() > current_version.valid_until
-
-    def search_versions(self, search_params: Dict[str, Any]) -> List[DocumentVersion]:
-        """
-        Поиск версий по параметрам
-        """
-        if not self.document:
-            return []
-
-        queryset = self.document.versions.filter(is_active=True)
-
-        if 'status' in search_params:
-            status = search_params['status']
-            if status == 'approved':
-                queryset = queryset.filter(approved=True)
-            elif status == 'rejected':
-                queryset = queryset.filter(rejected=True)
-            elif status == 'on_approval':
-                queryset = queryset.filter(on_approval=True)
-            elif status == 'missing':
-                queryset = queryset.filter(missing=True)
-
-        if 'uploaded_by' in search_params:
-            queryset = queryset.filter(uploaded_by=search_params['uploaded_by'])
-
-        if 'reviewed_by' in search_params:
-            queryset = queryset.filter(reviewed_by=search_params['reviewed_by'])
-
-        if 'date_from' in search_params:
-            queryset = queryset.filter(upload_date__gte=search_params['date_from'])
-
-        if 'date_to' in search_params:
-            queryset = queryset.filter(upload_date__lte=search_params['date_to'])
-
-        if 'valid_from' in search_params:
-            queryset = queryset.filter(valid_from__gte=search_params['valid_from'])
-
-        if 'valid_until' in search_params:
-            queryset = queryset.filter(valid_until__lte=search_params['valid_until'])
-
-        return list(queryset.order_by('-version'))
+    # ---------------------------------------------
+    # DocumentType
+    # ---------------------------------------------
+    def _get_document_type(self, slug: str) -> DocumentType | None:
+        return DocumentType.objects.filter(slug=slug).first()

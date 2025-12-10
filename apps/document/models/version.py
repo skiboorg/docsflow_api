@@ -79,9 +79,12 @@ class DocumentVersion(BaseModel):
             return 'На утверждении'
         return 'Неизвестно'
 
+
     @property
     def file_size(self):
         """Возвращает размер файла в байтах"""
+        from apps.document.services.version import VersionManager
         if self.file and hasattr(self.file, 'size'):
-            return self.file.size
+            manager = VersionManager()
+            return manager.format_file_size(self.file.size)
         return 0

@@ -16,6 +16,17 @@ class CompanyListSerializer(serializers.ModelSerializer):
         model = Company
         fields = '__all__'
 
+class CompanyShortSerializer(serializers.ModelSerializer):
+    company_type = CompanyTypeSerializer()
+
+    class Meta:
+        model = Company
+        fields = [
+            'uuid',
+            'name',
+            'company_type',
+            'inn',
+        ]
 
 class CompanyCreateSerializer(serializers.ModelSerializer):
     """Сериализатор для создания компании"""

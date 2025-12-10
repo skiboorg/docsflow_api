@@ -6,6 +6,14 @@ from djoser.serializers import UserCreateSerializer as BaseUserCreateSerializer
 
 from apps.user.models import User
 from apps.user.serializers.roles_permissions import RoleSerializer
+class UserShortSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            'uuid',
+            'email',
+        ]
+
 class UserSerializer(serializers.ModelSerializer):
     full_name = serializers.ReadOnlyField()
     role = RoleSerializer(read_only=True)
