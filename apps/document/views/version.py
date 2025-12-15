@@ -78,6 +78,7 @@ class DocumentVersionViewSet(viewsets.ReadOnlyModelViewSet):
     #                   ACTIONS
     # --------------------------------------------------------
 
+
     @action(detail=True, methods=["post"])
     def approve(self, request, uuid=None):
         version = self.get_object()

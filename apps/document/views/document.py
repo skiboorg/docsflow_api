@@ -10,6 +10,7 @@ from apps.document.serializers import (
     DocumentTagSerializer, DocumentTypeSerializer,
     DocumentListSerializer, DocumentDetailSerializer, DocumentCreateSerializer
 )
+from apps.document.services.version import VersionManager
 
 from apps.document.tasks import process_uploaded_archive
 
@@ -62,6 +63,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
     ordering_fields = ['upload_date', 'name']
     filter_backends = [DjangoFilterBackend]
     filterset_class = DocumentFilter
+    lookup_field = 'uuid'
+    lookup_url_kwarg = 'uuid'
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -78,10 +81,19 @@ class DocumentViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(uploaded_by=self.request.user)
 
+    @action(detail=True, methods=["post"])
+    def upload_version(self, request, uuid=None):
+        try:
+            obj = self.get_object()
+            version_manager = VersionManager()
+            version_manager.crate_version(obj,request)
+            return Response({"detail": "Версия загружена"}, status=status.HTTP_200_OK)
+        except :
+            return Response({"detail": "Ошибка загрузки"},status=status.HTTP_400_BAD_REQUEST)
 
 
     @action(detail=False, methods=['post'])
-    def upload(self, request, pk=None):
+    def upload(self, request, uuid=None):
         for file in request.FILES.getlist('file'):
             uploaded = UploadedDocument.objects.create(file=file)
 

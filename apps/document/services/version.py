@@ -28,6 +28,19 @@ class VersionManager:
         if valid_from and valid_until and valid_from > valid_until:
             raise ValidationError("Дата начала действия не может быть позже даты окончания")
 
+
+    def crate_version(self,document: Document, request) -> None:
+        file = request.FILES.get('file')
+        DocumentVersion.objects.create(
+            document=document,
+            file=file,
+            version=self.calculate_next_version(document),
+            valid_from=request.data.get("valid_from"),
+            valid_until=request.data.get("valid_from"),
+            uploaded_by=request.user,
+            comment=request.data.get("comment")
+        )
+
     @staticmethod
     def format_file_size(size_bytes: int) -> str:
         """

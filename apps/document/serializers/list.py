@@ -58,6 +58,7 @@ class DocumentListSerializer(serializers.ModelSerializer):
         model = Document
         fields = [
             'id',
+            'uuid',
             'name',
             'company',
             'document_type',
