@@ -7,14 +7,14 @@ from apps.company.serializers.company import CompanyShortSerializer
 
 
 STATUS_META = {
-    "approved": {"color": "success", "icon": "pi-check-circle", "label": "Утвержден"},
-    "expired": {"color": "danger", "icon": "pi-clock", "label": "Просрочен"},
-    "not_yet_valid": {"color": "info", "icon": "pi-history", "label": "Еще не действует"},
-    "on_approval": {"color": "#ff0000", "icon": "pi-hourglass", "label": "На согласовании"},
-    "rejected": {"color": "danger", "icon": "pi-times-circle", "label": "Отклонен"},
-    "missing": {"color": "secondary", "icon": "pi-question-circle", "label": "Отсутствует"},
-    "not_required": {"color": "secondary", "icon": "pi-ban", "label": "Не требуется"},
-    "valid": {"color": "success", "icon": "pi-check", "label": "Действует"},
+    "approved": {"color": "#00ff00", "icon": "pi-check-circle", "label": "Утвержден"},
+    "expired": {"color": "#c91b1b", "icon": "pi-clock", "label": "Просрочен"},
+    "not_yet_valid": {"color": "#c9951b", "icon": "pi-history", "label": "Еще не действует"},
+    "on_approval": {"color": "#adc91b", "icon": "pi-hourglass", "label": "На согласовании"},
+    "rejected": {"color": "#ff0000", "icon": "pi-times-circle", "label": "Отклонен"},
+    "missing": {"color": "#ff0000", "icon": "pi-question-circle", "label": "Отсутствует"},
+    "not_required": {"color": "#000000", "icon": "pi-ban", "label": "Не требуется"},
+    "valid": {"color": "#1bc92a", "icon": "pi-check", "label": "Действует"},
 }
 
 
@@ -28,6 +28,9 @@ class CompanySummaryRowSerializer(serializers.Serializer):
             'uuid': obj.uuid,
             'name': obj.name,
             'inn': obj.inn,
+            'director_name': obj.director_name,
+        'founding_date': obj.founding_date,
+        'authorized_capital': obj.authorized_capital,
             'company_type': obj.company_type.name if obj.company_type else None
         }
 

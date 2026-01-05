@@ -26,6 +26,9 @@ class CompanyShortSerializer(serializers.ModelSerializer):
             'name',
             'company_type',
             'inn',
+            'director_name',
+            'founding_date',
+            'authorized_capital',
         ]
 
 class CompanyCreateSerializer(serializers.ModelSerializer):

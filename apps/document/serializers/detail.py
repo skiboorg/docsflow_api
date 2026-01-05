@@ -19,7 +19,8 @@ class DocumentDetailShortSerializer(DocumentListSerializer):
         if obj.document_type:
             return obj.document_type.name
         else:
-            return "Тип отсутсвует"
+            return None
+            # return "Тип отсутсвует"
 
     def get_company_name(self, obj):
         if obj.company:

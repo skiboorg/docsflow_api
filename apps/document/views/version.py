@@ -54,13 +54,23 @@ class DocumentVersionFilter(django_filters.FilterSet):
         model = DocumentVersion
         fields = ["company", "document_type_ids", "status"]
 
-class DocumentVersionViewSet(viewsets.ReadOnlyModelViewSet):
+class DocumentVersionViewSet(viewsets.ModelViewSet):
     serializer_class = DocumentVersionSerializer
     filter_backends = [DjangoFilterBackend]
     pagination_class = Pagination
-    filterset_class = DocumentVersionFilter  # <-- используем FilterSet
+    filterset_class = DocumentVersionFilter
     lookup_field = "uuid"
     lookup_url_kwarg = "uuid"
+
+    def update(self, request, *args, **kwargs):
+        obj = self.get_object()
+        new_type = request.data.get("type",None)
+        name = request.data.get("name")
+        if new_type:
+            obj.document.document_type_id = new_type.get("id")
+        obj.document.name = name
+        obj.document.save()
+        return Response(status=200)
 
     def get_queryset(self):
         return (
