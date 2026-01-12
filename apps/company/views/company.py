@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
+from django.http import HttpResponse
 from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -11,6 +12,8 @@ from apps.company.serializers.company import *
 from django.db.models import Prefetch, Q
 
 from apps.document.models import Document
+
+from apps.company.services.zip_docs import zip_docs
 
 class Pagination(PageNumberPagination):
     page_size = 20
@@ -107,3 +110,10 @@ class CompanyViewSet(viewsets.ModelViewSet):
         company = self.get_object()
         serializer = CompanyDetailSerializer(company)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'], url_path='download_docs')
+    def download_docs(self, request, pk=None):
+        company = self.get_object()
+        resp = zip_docs(company)
+
+        return resp
