@@ -24,7 +24,7 @@ class DocumentDetailShortSerializer(DocumentListSerializer):
 
     def get_company_name(self, obj):
         if obj.company:
-            return f'{obj.company.company_type.name} {obj.company.name}'
+            return f'{obj.company.company_type.name if obj.company.company_type else ""} {obj.company.name}'
 
 
 class DocumentDetailSerializer(DocumentListSerializer):
