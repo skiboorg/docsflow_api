@@ -30,7 +30,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Обработка нажатия кнопок
 async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    tg_id = str(update.message.from_user.id)
+    tg_id = str(update.message.from_user.username)
 
     # Проверяем права пользователя
     rows = get_user_permissions(tg_id)
@@ -60,7 +60,7 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    tg_id = str(update.message.from_user.id)
+    tg_id = str(update.message.from_user.username)
     # Проверяем, нажимал ли пользователь кнопку "Добавить файл"
     if not waiting_for_file.get(tg_id):
         await update.message.reply_text("Сначала нажмите кнопку ➕ Добавить файл")
