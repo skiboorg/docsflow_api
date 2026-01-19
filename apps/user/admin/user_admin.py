@@ -5,7 +5,7 @@ from apps.user.models import User
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     list_display = [
-        'email', 'first_name', 'last_name', 'phone', 
+        'email','tg_id', 'first_name', 'last_name', 'phone',
         'is_verified', 'is_staff', 'is_active', 'date_joined'
     ]
     list_filter = ['is_verified', 'is_staff', 'is_active', 'date_joined']
@@ -15,7 +15,7 @@ class UserAdmin(BaseUserAdmin):
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
         ('Role', {'fields': ('role',)}),
-        ('Personal info', {'fields': ('first_name', 'last_name', 'phone', 'avatar')}),
+        ('Personal info', {'fields': ('tg_id', 'first_name', 'last_name', 'phone', 'avatar')}),
         ('Permissions', {'fields': ('is_verified', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )
@@ -23,7 +23,7 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('role','email', 'password1', 'password2', 'first_name', 'last_name', 'phone'),
+            'fields': ('role','tg_id','email', 'password1', 'password2', 'first_name', 'last_name', 'phone'),
         }),
     )
     

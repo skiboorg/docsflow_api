@@ -92,15 +92,31 @@ class DocumentViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Ошибка загрузки"},status=status.HTTP_400_BAD_REQUEST)
 
 
+    # @action(detail=False, methods=['post'])
+    # def upload(self, request, uuid=None):
+    #     for file in request.FILES.getlist('file'):
+    #         uploaded = UploadedDocument.objects.create(file=file)
+    #
+    #         # передаём id в задачу .delay
+    #         process_uploaded_archive(uploaded.id,request.user.id)
+    #
+    #     return Response({
+    #         'status': 'Файлы загружены. Обработка запущена.'
+    #     })
     @action(detail=False, methods=['post'])
     def upload(self, request, uuid=None):
+        # Получаем user_id из запроса, если нет авторизации
+        user_id = getattr(request.user, "id", None) or request.data.get("user_id")
+        print(request.FILES)
+        if not user_id:
+            return Response({"error": "Не указан user_id и нет авторизованного пользователя"}, status=400)
+
         for file in request.FILES.getlist('file'):
             uploaded = UploadedDocument.objects.create(file=file)
 
-            # передаём id в задачу .delay
-            process_uploaded_archive(uploaded.id,request.user.id)
+            # передаём id в задачу Celery .delay
+            process_uploaded_archive(uploaded.id, user_id)
 
         return Response({
             'status': 'Файлы загружены. Обработка запущена.'
         })
-

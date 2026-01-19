@@ -27,6 +27,12 @@ class User(AbstractUser):
         null=True,
         verbose_name='Phone'
     )
+    tg_id = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name='TG ID'
+    )
     avatar = models.ImageField(
         upload_to='avatars/',
         blank=True,
