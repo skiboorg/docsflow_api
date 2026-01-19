@@ -8,6 +8,7 @@ from pathlib import Path
 waiting_for_file = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(update.message.from_user)
     tg_id = str(update.message.from_user.username)
     rows = get_user_permissions(tg_id)
 

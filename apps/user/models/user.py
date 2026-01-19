@@ -28,7 +28,7 @@ class User(AbstractUser):
         verbose_name='Phone'
     )
     tg_id = models.CharField(
-        max_length=20,
+        max_length=50,
         blank=True,
         null=True,
         verbose_name='TG ID'
