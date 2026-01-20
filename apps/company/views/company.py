@@ -44,7 +44,7 @@ class CompanyFilter(filters.FilterSet):
 
 class CompanyViewSet(viewsets.ModelViewSet):
     queryset = Company.objects.all()
-    permission_classes = [permissions.IsAuthenticated]
+    #permission_classes = [permissions.IsAuthenticated]
     pagination_class = Pagination
     filter_backends = [DjangoFilterBackend]
     filterset_class = CompanyFilter

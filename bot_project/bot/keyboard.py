@@ -14,7 +14,7 @@ def generate_keyboard(rows):
     can_delete = any(r['can_delete'] for r in rows)
 
     buttons = []
-    if can_view: buttons.append(["👀 Просмотр"])
+    if can_view: buttons.append(["Список компаний"])
     if can_add: buttons.append(["➕ Добавить"])
     if can_add: buttons.append(["➕ Добавить файл"])
     if can_edit: buttons.append(["✏️ Редактировать"])

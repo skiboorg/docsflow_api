@@ -36,3 +36,7 @@ redis==5.0.1
 rarfile
 flask
 python-telegram-bot
+aiohttp
+jinja2
+weasyprint
+python-dateutil

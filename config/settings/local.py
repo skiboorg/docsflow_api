@@ -4,6 +4,7 @@ DEBUG = True
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
 
 from .database_postgres import *
+# from .database_sqlite import *
 from .installed import *
 from .rest import *
 from .logging import *

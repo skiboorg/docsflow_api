@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Отчет о компании</title>
+    <style>
+        @page { size: A4; margin: 0; background-color: #1D1E22; }
+        html { background-color: #1D1E22; }
+        body {
+            margin: 2cm;
+            font-family: DejaVu Sans, sans-serif;
+            font-size: 10pt;
+            line-height: 1.4;
+            color: #FFFFFF;
+            background-color: #1D1E22;
+        }
+        h1 {
+            color: #FFFFFF;
+            font-size: 20pt;
+            margin-bottom: 15px;
+            border-bottom: 3px solid #16151B;
+            padding-bottom: 8px;
+        }
+        h2 {
+            color: #FFFFFF;
+            font-size: 14pt;
+            margin-top: 25px;
+            margin-bottom: 12px;
+            background: #16151B;
+            padding: 10px;
+            border-left: 4px solid #3A3A42;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            background: #222228;
+        }
+        th, td {
+            border: 1px solid #3A3A42;
+            padding: 10px;
+            text-align: left;
+            word-wrap: break-word;
+            color: #FFFFFF;
+        }
+        th {
+            background: #16151B;
+            color: #FFFFFF;
+            font-weight: bold;
+            font-size: 11pt;
+        }
+        tr:nth-child(even) {
+            background: #2A2A30;
+        }
+        .current {
+            background: #2D4A3E !important;
+            font-weight: bold;
+        }
+        .account-number {
+            font-size: 7pt;
+            font-family: monospace;
+            white-space: nowrap;
+        }
+        .bank-name {
+            font-size: 8pt;
+        }
+        .info-row {
+            display: flex;
+            margin: 8px 0;
+            padding: 5px 0;
+            border-bottom: 1px solid #3A3A42;
+        }
+        .info-label {
+            font-weight: bold;
+            width: 220px;
+            color: #CCCCCC;
+        }
+        .info-value {
+            flex: 1;
+            color: #FFFFFF;
+        }
+        .header-info {
+            background: #16151B;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .footer {
+            margin-top: 40px;
+            font-size: 8pt;
+            color: #999999;
+            text-align: center;
+            border-top: 2px solid #3A3A42;
+            padding-top: 15px;
+        }
+        .page-break {
+            page-break-before: always;
+        }
+    </style>
+</head>
+<body>
+    <h1>Отчет {{ company.short_name or 'Не указано' }}</h1>
+    <div class="header-info">
+        <p><strong>Дата формирования:</strong> {{ generation_date }}</p>
+    </div>
+    <h2>Основная информация</h2>
+    <div class="info-row"><div class="info-label">Полное наименование:</div><div class="info-value">{{ company.full_name or 'Не указано' }}</div></div>
+    <div class="info-row"><div class="info-label">Краткое наименование:</div><div class="info-value">{{ company.short_name or 'Не указано' }}</div></div>
+    {% if company.heads_history %}
+        {% for item in company.heads_history %}
+        {% if loop.first %}<div class="info-row"><div class="info-label">{{ item.position or 'Не указана' }}</div><div class="info-value">{{ item.fio or item.name or 'Не указано' }}</div></div>{% endif %}
+        {% endfor %}
+    {% endif %}
+    <div class="info-row"><div class="info-label">ИНН:</div><div class="info-value">{{ company.inn or 'Не указан' }}</div></div>
+    <div class="info-row"><div class="info-label">ОГРН:</div><div class="info-value">{{ company.ogrn or 'Не указан' }}</div></div>
+    <div class="info-row"><div class="info-label">КПП:</div><div class="info-value">{{ company.kpp or 'Не указан' }}</div></div>
+    <div class="info-row"><div class="info-label">ОКТМО:</div><div class="info-value">{{ company.oktmo or 'Не указан' }}</div></div>
+    <div class="info-row"><div class="info-label">Адрес:</div><div class="info-value">{{ company.address or 'Адрес не указан' }}</div></div>
+    <div class="info-row"><div class="info-label">Дата регистрации:</div><div class="info-value">{{ company.registration_date or 'Не указана' }}</div></div>
+    {% if company.accounts %}
+        {% for account in company.accounts %}
+        {% if loop.first %}<div class="info-row"><div class="info-label">Р/С:</div><div class="info-value">{{ account.account_number or 'Не указан' }}</div></div>{% endif %}
+        {% endfor %}
+    {% endif %}
+    {% if company.accounts %}
+        {% for account in company.accounts %}
+        {% if loop.first %}<div class="info-row"><div class="info-label">БИК:</div><div class="info-value">{{ account.bik or 'Не указан' }}</div></div>{% endif %}
+        {% endfor %}
+    {% endif %}
+    {% if company.accounts %}
+        {% for account in company.accounts %}
+        {% if loop.first %}<div class="info-row"><div class="info-label">Банк:</div><div class="info-value">{{ account.bank_name or 'Не указан' }}</div></div>{% endif %}
+        {% endfor %}
+    {% endif %}
+
+    <div class="info-row"><div class="info-label">Статус:</div><div class="info-value">{{ company.status or 'Не указан' }}</div></div>
+    {% if company.kpp_history %}
+    <div class="page-break"></div>
+    <h2>История КПП (за последние 3 года)</h2>
+    <table>
+        <tr><th>Дата</th><th>КПП</th><th>Статус</th></tr>
+        {% for item in company.kpp_history %}
+        <tr {% if loop.first %}class="current"{% endif %}>
+            <td>{{ item.date or 'Не указана' }}</td>
+            <td>{{ item.kpp or 'Не указан' }}</td>
+            <td>{% if loop.first %}ТЕКУЩИЙ{% else %}Архивный{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <h2>История КПП</h2>
+    <p>Данные отсутствуют</p>
+    {% endif %}
+    {% if company.heads_history %}
+    <h2>История директоров (за последние 3 года)</h2>
+    <table>
+        <tr><th>Дата назначения</th><th>ФИО</th><th>Должность</th><th>Статус</th></tr>
+        {% for item in company.heads_history %}
+        <tr {% if loop.first %}class="current"{% endif %}>
+            <td>{{ item.date or 'Не указана' }}</td>
+            <td>{{ item.fio or item.name or 'Не указано' }}</td>
+            <td>{{ item.position or 'Не указана' }}</td>
+            <td>{% if loop.first %}ТЕКУЩИЙ{% else %}Архивный{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <h2>История директоров</h2>
+    <p>Данные отсутствуют</p>
+    {% endif %}
+    {% if company.address_history %}
+    <h2>История адресов (за последние 3 года)</h2>
+    <table>
+        <tr><th>Дата</th><th>Адрес</th><th>Статус</th></tr>
+        {% for item in company.address_history %}
+        <tr {% if loop.first %}class="current"{% endif %}>
+            <td>{{ item.date or 'Не указана' }}</td>
+            <td>{{ item.addressStr or item.address or 'Не указан' }}</td>
+            <td>{% if loop.first %}ТЕКУЩИЙ{% else %}Архивный{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <h2>История адресов</h2>
+    <p>Данные отсутствуют</p>
+    {% endif %}
+    {% if company.accounts %}
+    <h2>Счета (НЕ ДЛЯ ОПЛАТ)</h2>
+    <table>
+        <tr><th>Наименование банка</th><th>БИК</th><th>Расчетный счет</th><th>Открыт</th><th>Закрыт</th></tr>
+        {% for account in company.accounts %}
+        <tr {% if loop.first %}class="current"{% endif %}>
+            <td class="bank-name">{{ account.bank_name or 'Не указан' }}</td>
+            <td>{{ account.bik or 'Не указан' }}</td>
+            <td class="account-number">{{ account.account_number or 'Не указан' }}</td>
+            <td>{{ account.open_date or 'Не указана' }}</td>
+            <td>{{ account.close_date or '-' }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <h2>Счета (НЕ ДЛЯ ОПЛАТ)</h2>
+    <p>Данные отсутствуют</p>
+    {% endif %}
+</body>
+</html>
