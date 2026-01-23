@@ -53,6 +53,8 @@ class DocumentVersion(BaseModel):
     is_active = models.BooleanField('Активна', default=True)
     is_current = models.BooleanField('Текущая версия', default=False)
 
+
+
     class Meta:
         verbose_name = 'Версия документа'
         verbose_name_plural = 'Версии документов'

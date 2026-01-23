@@ -16,7 +16,7 @@ class UploadedDocument(BaseModel):
 
 class Document(BaseModel):
     """Модель документа"""
-    name = models.CharField('Название документа', max_length=255)
+    name = models.CharField('Название документа', max_length=255,blank=True,null=True,)
     company = models.ForeignKey(Company, on_delete=models.CASCADE,
                                 related_name='documents',
                                 verbose_name='Компания')

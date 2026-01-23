@@ -34,7 +34,40 @@ class DocumentTypeViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'aliases__name']
     ordering_fields = ['name']
 
+
 class DocumentFilter(django_filters.FilterSet):
+    # Фильтрация по UUID компании
+    company_uuid = django_filters.UUIDFilter(field_name='company__uuid')
+
+    # Фильтрация по ИНН компании
+    company_inn = django_filters.CharFilter(field_name='company__inn')
+
+    # Или поиск по части ИНН
+    company_inn__icontains = django_filters.CharFilter(field_name='company__inn', lookup_expr='icontains')
+
+    # Фильтрация по одному или нескольким document_type
+    document_type_ids = django_filters.BaseInFilter(field_name='document_type_id', lookup_expr='in')
+
+    # Фильтрация по одному document_type
+    document_type_id = django_filters.NumberFilter(field_name='document_type_id')
+
+    # Фильтрация по статусу
+    status = django_filters.CharFilter(method='filter_status')
+
+    class Meta:
+        model = Document
+        fields = ['company_uuid', 'company_inn', 'document_type_id', 'document_type_ids', 'status']
+
+    def filter_status(self, queryset, name, value):
+        if value == 'approved':
+            return queryset.filter(approved=True)
+        if value == 'rejected':
+            return queryset.filter(rejected=True)
+        if value == 'pending':
+            return queryset.filter(on_approval=True)
+        return queryset
+
+class DocumentFilterOLD(django_filters.FilterSet):
     # Фильтрация по UUID компании
     company_uuid = django_filters.UUIDFilter(field_name='company__uuid')
 

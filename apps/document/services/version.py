@@ -1,10 +1,15 @@
-from typing import Optional
+# services/version.py
+from typing import Optional, List
 from datetime import date
+from django.utils import timezone
+import zipfile
+import io
+import os
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
-from apps.document.models import Document,DocumentVersion
+from apps.document.models import Document, DocumentVersion
 
 User = get_user_model()
 
@@ -28,8 +33,7 @@ class VersionManager:
         if valid_from and valid_until and valid_from > valid_until:
             raise ValidationError("Дата начала действия не может быть позже даты окончания")
 
-
-    def crate_version(self,document: Document, request) -> None:
+    def crate_version(self, document: Document, request) -> None:
         file = request.FILES.get('file')
         DocumentVersion.objects.create(
             document=document,
@@ -69,3 +73,64 @@ class VersionManager:
         elif version.on_approval:
             return 'На утверждении'
         return 'Неизвестно'
+
+    @staticmethod
+    def create_zip_archive(versions: List[DocumentVersion]) -> io.BytesIO:
+        """
+        Создает ZIP архив из списка версий документов
+
+        Args:
+            versions: QuerySet или список объектов DocumentVersion
+
+        Returns:
+            BytesIO объект с ZIP архивом
+        """
+        zip_buffer = io.BytesIO()
+
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            # Словарь для отслеживания дубликатов имен файлов
+            used_names = {}
+
+            for version in versions:
+                if not version.file:
+                    continue
+
+                try:
+                    # Получаем информацию о документе
+                    company_name = version.document.company.name
+                    company_inn = version.document.company.inn
+                    doc_type = version.document.document_type.name if version.document.document_type else "Без_типа"
+
+                    # Очищаем имена от недопустимых символов
+                    company_name = "".join(c for c in company_name if c.isalnum() or c in (' ', '_', '-')).strip()
+                    doc_type = "".join(c for c in doc_type if c.isalnum() or c in (' ', '_', '-')).strip()
+
+                    # Получаем оригинальное имя файла
+                    original_filename = os.path.basename(version.file.name)
+                    file_extension = os.path.splitext(original_filename)[1]
+
+                    # Формируем путь внутри архива: ИНН_Компания/Тип_документа/версия_N_файл.ext
+                    folder_path = f"{company_inn}_{company_name}/{doc_type}"
+                    file_name = f"v{version.version}_{original_filename}"
+                    archive_path = f"{folder_path}/{file_name}"
+
+                    # Обрабатываем дубликаты
+                    if archive_path in used_names:
+                        counter = used_names[archive_path]
+                        used_names[archive_path] += 1
+                        base_name = os.path.splitext(file_name)[0]
+                        archive_path = f"{folder_path}/{base_name}_{counter}{file_extension}"
+                    else:
+                        used_names[archive_path] = 1
+
+                    # Добавляем файл в архив
+                    with version.file.open('rb') as f:
+                        zip_file.writestr(archive_path, f.read())
+
+                except Exception as e:
+                    # Логируем ошибку, но продолжаем работу
+                    print(f"Ошибка при добавлении файла {version.uuid}: {str(e)}")
+                    continue
+
+        zip_buffer.seek(0)
+        return zip_buffer

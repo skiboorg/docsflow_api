@@ -1,4 +1,6 @@
+
 import django_filters
+from django.utils import timezone
 
 from django.utils.timezone import now
 from django_filters.rest_framework import DjangoFilterBackend
@@ -10,6 +12,14 @@ from rest_framework.response import Response
 
 from apps.document.models.version import DocumentVersion
 from apps.document.serializers.version import DocumentVersionSerializer
+
+from django.http import HttpResponse
+import zipfile
+import io
+import os
+
+from apps.document.services.version import VersionManager
+
 
 class Pagination(PageNumberPagination):
     page_size = 20
@@ -62,13 +72,52 @@ class DocumentVersionViewSet(viewsets.ModelViewSet):
     lookup_field = "uuid"
     lookup_url_kwarg = "uuid"
 
+    @action(detail=False, methods=['post'], url_path='download-zip')
+    def download_zip(self, request):
+        """
+        Скачивание выбранных версий документов в ZIP архиве
+        Ожидает: {"version_uuids": ["uuid1", "uuid2", ...]}
+        """
+        print(request.data)
+        version_uuids = request.data.get('version_uuids', [])
+
+        if not version_uuids:
+            return Response(
+                {"error": "Список version_uuids не может быть пустым"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Получаем версии
+        versions = DocumentVersion.objects.filter(
+            uuid__in=version_uuids,
+            is_active=True
+        ).select_related('document__company', 'document__document_type')
+
+        if not versions.exists():
+            return Response(
+                {"error": "Версии не найдены"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Создаем ZIP в памяти
+        manager = VersionManager()
+        zip_buffer = manager.create_zip_archive(versions)
+
+        # Возвращаем ZIP файл
+        response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+        response[
+            'Content-Disposition'] = f'attachment; filename="documents_{timezone.now().strftime("%Y%m%d_%H%M%S")}.zip"'
+
+        return response
+
     def update(self, request, *args, **kwargs):
         obj = self.get_object()
         new_type = request.data.get("type",None)
-        name = request.data.get("name")
+        comment = request.data.get("comment")
         if new_type:
             obj.document.document_type_id = new_type.get("id")
-        obj.document.name = name
+        obj.comment = comment
+        obj.save()
         obj.document.save()
         return Response(status=200)
 

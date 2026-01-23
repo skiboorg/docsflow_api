@@ -12,7 +12,9 @@ class DocumentVersionInline(admin.TabularInline):
     model = DocumentVersion
     extra = 0
     fields = (
-        'version', 'file', 'on_approval', 'approved', 'rejected', 'missing',
+        'version',
+        'comment',
+        'file', 'on_approval', 'approved', 'rejected', 'missing',
         'is_current', 'is_active', 'upload_date',
         'valid_from',
         'valid_until',

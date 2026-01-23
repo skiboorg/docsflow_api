@@ -53,28 +53,64 @@ class ArchiveDocumentImportService:
     # Парсинг файлов
     # ---------------------------------------------
     def _process_file(self, file_path: Path):
-        """Ожидается формат ИНН_document_type_slug.ext"""
+        """Ожидается формат ИНН_document_type_slug_*.ext"""
         name = file_path.stem  # без расширения
 
         if "_" not in name:
             print(f"⚠ Файл пропущен: {name} — нет разделителя '_'")
             return
 
-        inn, doc_slug = name.split("_", 1)
+        parts = name.split("_")
+
+        if len(parts) < 2:
+            print(f"⚠ Файл пропущен: {name} — недостаточно частей")
+            return
+
+        inn = parts[0]
+
+        # Ищем подходящий document_type среди оставшихся частей
+        doc_type = None
+        doc_slug = None
+
+        # Пробуем найти тип документа, перебирая возможные комбинации частей
+        for i in range(1, len(parts)):
+            potential_slug = "_".join(parts[1:i + 1])
+            doc_type = self._get_document_type(potential_slug)
+            if doc_type:
+                doc_slug = potential_slug
+                break
+
+        if not doc_type:
+            print(f"⚠ document_type не найден для файла: {name}, создаем без типа")
 
         company = self._get_or_create_company(inn)
-        doc_type = self._get_document_type(doc_slug)
 
-        # if not doc_type:
-        #     print(f"⚠ document_type_slug '{doc_slug}' не найден")
-        #     return
+        # Document - создаем с doc_type=None если не нашли
+        print(doc_type)
+        if doc_type:
+            # document, _ = Document.objects.get_or_create(
+            #     company=company,
+            #     document_type=doc_type,  # может быть None
+            #     created_by=User.objects.get(id=self.uploaded_by_id)
+            # )
+            document = Document.objects.filter(
+                company=company,
+                document_type=doc_type,
+                created_by=User.objects.get(id=self.uploaded_by_id)
+            ).order_by('-created_at').first()
 
-        # Document
-        document, _ = Document.objects.get_or_create(
-            company=company,
-            document_type=doc_type,
-            created_by=User.objects.get(id=self.uploaded_by_id )
-        )
+            if not document:
+                document = Document.objects.create(
+                    company=company,
+                    document_type=doc_type,
+                    created_by=User.objects.get(id=self.uploaded_by_id)
+                )
+        else:
+            document= Document.objects.create(
+                company=company,
+                document_type=doc_type,  # может быть None
+                created_by=User.objects.get(id=self.uploaded_by_id)
+            )
         version_manager = VersionManager()
         # Создаем версию
         with open(file_path, "rb") as f:
@@ -82,10 +118,11 @@ class ArchiveDocumentImportService:
                 document=document,
                 version=version_manager.calculate_next_version(document),
                 file=File(f, name=file_path.name),
-                uploaded_by=User.objects.get(id=self.uploaded_by_id )
+                uploaded_by=User.objects.get(id=self.uploaded_by_id)
             )
 
-        print(f"✔ Документ создан: {file_path.name}")
+        type_info = f"тип: {doc_slug}" if doc_type else "без типа"
+        print(f"✔ Документ создан: {file_path.name} ({type_info})")
 
     # ---------------------------------------------
     # Company
