@@ -38,6 +38,9 @@ TEMPLATES = [
 ROOT_URLCONF = 'core.urls'
 WSGI_APPLICATION = 'core.wsgi.application'
 
+PDF_TEMPLATES_DIR = BASE_DIR / 'templates'
+PDF_REPORTS_DIR = BASE_DIR / 'media' / 'reports'
+
 # Internationalization
 LANGUAGE_CODE = 'ru-RU'
 TIME_ZONE = 'Europe/Moscow'

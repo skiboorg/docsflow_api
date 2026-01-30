@@ -117,4 +117,5 @@ class DocumentVersionShortSerializer(serializers.ModelSerializer):
             'file_size',
             'status_display',
             'upload_date',
+            'is_current'
         ]

@@ -13,7 +13,11 @@ def zip_docs(company):
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
 
         for document in company.documents.prefetch_related('versions'):
-            doc_folder = document.name
+            print(document)
+            try:
+                doc_folder = document.document_type.name
+            except:
+                doc_folder = 'Нет типа документа'
 
             for version in document.versions.all():
                 if not version.file:

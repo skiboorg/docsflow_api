@@ -26,6 +26,13 @@ class Company(BaseModel):
     founding_date = models.DateField('Дата открытия')
     authorized_capital = models.DecimalField('Уставной капитал', max_digits=15, decimal_places=2)
 
+    pdf_report = models.FileField(
+        'PDF отчёт',
+        upload_to='reports/',
+        blank=True,
+        null=True
+    )
+
     class Meta:
         verbose_name = 'Компания'
         verbose_name_plural = 'Компании'

@@ -23,14 +23,22 @@ class CompanySummaryRowSerializer(serializers.Serializer):
     documents = serializers.SerializerMethodField()
 
     def get_company(self, obj):
+        pdf_url = None
+        if obj.pdf_report:
+            try:
+                pdf_url = obj.pdf_report.url
+            except (ValueError, AttributeError):
+                pdf_url = None
+
         return {
             'id': obj.id,
             'uuid': obj.uuid,
             'name': obj.name,
             'inn': obj.inn,
             'director_name': obj.director_name,
-        'founding_date': obj.founding_date,
-        'authorized_capital': obj.authorized_capital,
+            'pdf_report': pdf_url,
+            'founding_date': obj.founding_date,
+            'authorized_capital': obj.authorized_capital,
             'company_type': obj.company_type.name if obj.company_type else None
         }
 

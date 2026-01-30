@@ -112,11 +112,20 @@ class DocumentVersionViewSet(viewsets.ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         obj = self.get_object()
+        print(request.data)
+
         new_type = request.data.get("type",None)
-        comment = request.data.get("comment")
+        valid_from = request.data.get("valid_from",None)
+        valid_until = request.data.get("valid_until",None)
+        is_current = request.data.get("is_current",False)
+        comment = request.data.get("comment",None)
         if new_type:
             obj.document.document_type_id = new_type.get("id")
-        obj.comment = comment
+        if comment:
+            obj.comment = comment
+        obj.valid_from = valid_from
+        obj.valid_until = valid_until
+        obj.is_current = is_current
         obj.save()
         obj.document.save()
         return Response(status=200)

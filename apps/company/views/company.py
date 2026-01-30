@@ -1,4 +1,5 @@
 import django_filters
+from django.db.models.expressions import result
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
@@ -14,6 +15,7 @@ from django.db.models import Prefetch, Q
 from apps.document.models import Document
 
 from apps.company.services.zip_docs import zip_docs
+from apps.company.services import CompanyService
 
 class Pagination(PageNumberPagination):
     page_size = 20
@@ -74,17 +76,28 @@ class CompanyViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         """Создание компании с дополнительной логикой"""
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        use_inn_for_create = request.data.get('use_inn_for_create')
+        if use_inn_for_create:
+            print('use_inn_for_create')
+            inn = request.data.get('inn')
+            company_service = CompanyService()
+            result = company_service.create_or_update_company(inn, True)
+            if result['success']:
+                return Response(status=status.HTTP_200_OK)
+            else:
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            serializer.is_valid(raise_exception=True)
 
-        # Можно добавить дополнительную логику перед сохранением
-        company = serializer.save()
+            # Можно добавить дополнительную логику перед сохранением
+            company = serializer.save()
 
-        # Возвращаем детальную информацию о созданной компании
-        detail_serializer = CompanyDetailSerializer(company)
-        return Response(
-            detail_serializer.data,
-            status=status.HTTP_201_CREATED
-        )
+            # Возвращаем детальную информацию о созданной компании
+            detail_serializer = CompanyDetailSerializer(company)
+            return Response(
+                detail_serializer.data,
+                status=status.HTTP_201_CREATED
+            )
 
     def update(self, request, *args, **kwargs):
         """Обновление компании"""
@@ -110,6 +123,17 @@ class CompanyViewSet(viewsets.ModelViewSet):
         company = self.get_object()
         serializer = CompanyDetailSerializer(company)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'], url_path='report')
+    def report(self, request, pk=None):
+        """Детальная информация о компании"""
+        company = self.get_object()
+        company_service = CompanyService()
+        result = company_service.create_or_update_company(company.inn,True)
+        if result['success']:
+            return Response(status=status.HTTP_200_OK)
+        else:
+            return Response(result,status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['get'], url_path='download_docs')
     def download_docs(self, request, pk=None):
