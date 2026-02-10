@@ -132,7 +132,241 @@ class CompanyService:
 
     @classmethod
     @transaction.atomic
-    def create_or_update_company(cls, inn: str, generate_pdf: bool = True) -> Optional[Company] or Optional[Dict]:
+    def create_or_update_company(cls, inn: str, generate_pdf: bool = False) -> Optional[Dict]:
+        """
+        Создание или обновление компании по ИНН
+
+        Args:
+            inn: ИНН компании
+            generate_pdf: Генерировать ли PDF отчёт
+
+        Returns:
+            Словарь с результатом операции
+        """
+        from django.db import transaction
+
+        try:
+            # Получаем данные из Kontur API
+            with KonturAPIClient() as client:
+                kontur_data = client.get_company_by_inn(inn)
+
+                if not kontur_data:
+                    logger.error(f"Company with INN {inn} not found in Kontur API")
+                    return {"success": False, "message": "Company not found"}
+
+            # Извлекаем данные
+            ul = kontur_data.get('UL', {})
+            legal_name = ul.get('legalName', {})
+
+            # Название компании
+            company_name = legal_name.get('short', '') or legal_name.get('full', '')
+
+            if not company_name:
+                logger.error(f"Cannot extract company name for INN {inn}")
+                return {"success": False, "message": "Cannot extract company name for INN"}
+
+            # Дата регистрации (founding_date)
+            registration_date_str = ul.get('registrationDate', '')
+            founding_date = cls._parse_date(registration_date_str)
+
+            if not founding_date:
+                logger.error(f"Cannot parse founding_date for INN {inn}")
+                return {"success": False, "message": "Cannot parse founding_date for INN"}
+
+
+
+            # Уставной капитал
+            authorized_capital = cls._extract_authorized_capital(kontur_data)
+
+            # Тип компании
+            company_type = cls._get_or_create_company_type(kontur_data)
+
+            # Используем транзакцию для атомарности
+            with transaction.atomic():
+                # Создаём или обновляем компанию
+                company, created = Company.objects.update_or_create(
+                    inn=inn,
+                    defaults={
+                        'name': company_name,
+                        'company_type': company_type,
+                        'founding_date': founding_date,
+                        'authorized_capital': authorized_capital,
+                    }
+                )
+
+                logger.info(f"Company {'created' if created else 'updated'}: {company}")
+
+                # Обрабатываем руководителей
+                cls._process_company_heads(company, kontur_data)
+
+            # Генерируем PDF если требуется
+            if generate_pdf:
+                generator = PDFGenerator()
+                pdf_bytes = generator.generate_report(kontur_data, inn)
+
+                if pdf_bytes:
+                    # Сохраняем PDF
+                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                    pdf_filename = f"company_report_{inn}_{timestamp}.pdf"
+
+                    # Удаляем старый PDF если есть
+                    if hasattr(company, 'pdf_report') and company.pdf_report:
+                        company.pdf_report.delete(save=False)
+
+                    # Сохраняем новый PDF (если поле есть в модели)
+                    if hasattr(company, 'pdf_report'):
+                        company.pdf_report.save(
+                            pdf_filename,
+                            ContentFile(pdf_bytes),
+                            save=True
+                        )
+                        logger.info(f"PDF saved for company {inn}: {company.pdf_report.url}")
+                    else:
+                        logger.info(f"PDF generated for company {inn}, but no pdf_report field in model")
+                else:
+                    logger.warning(f"Failed to generate PDF for company {inn}")
+
+            return {"success": True, "message": "Done", "company": company}
+
+        except Exception as e:
+            logger.error(f"Error creating/updating company {inn}: {e}", exc_info=True)
+            return {"success": False, "message": f"Error creating/updating company: {str(e)}"}
+
+    @classmethod
+    def _process_company_heads(cls, company, kontur_data: Dict[str, Any]) -> None:
+        """
+        Обработка руководителей компании (текущих и исторических)
+
+        Args:
+            company: Объект Company
+            kontur_data: Данные от Kontur API
+        """
+        from apps.company.models import Head, CompanyHead
+        from django.utils.dateparse import parse_date
+
+        try:
+            ul_data = kontur_data.get('UL', {})
+
+            # Собираем всех руководителей
+            heads_to_process = []
+
+            # Текущие руководители
+            current_heads = ul_data.get('heads', [])
+            logger.info(f"Found {len(current_heads)} current heads for company {company.inn}")
+
+            for head in current_heads:
+                structured_fio = head.get('structuredFio', {})
+                fio = head.get('fio', '')
+
+                # Если нет полного ФИО, собираем из структурированного
+                if not fio and structured_fio:
+                    fio = ' '.join(filter(None, [
+                        structured_fio.get('lastName', ''),
+                        structured_fio.get('firstName', ''),
+                        structured_fio.get('middleName', '')
+                    ]))
+
+                if fio:
+                    heads_to_process.append({
+                        'fio': fio,
+                        'inn': head.get('innfl'),
+                        'position': head.get('position'),
+                        'start_date': head.get('firstDate') or head.get('date'),
+                        'end_date': None,
+                        'is_active': True
+                    })
+
+            # Исторические руководители
+            history = ul_data.get('history', {})
+            historical_heads = history.get('heads', [])
+            logger.info(f"Found {len(historical_heads)} historical heads for company {company.inn}")
+
+            for head in historical_heads:
+                structured_fio = head.get('structuredFio', {})
+                fio = head.get('fio', '')
+
+                if not fio and structured_fio:
+                    fio = ' '.join(filter(None, [
+                        structured_fio.get('lastName', ''),
+                        structured_fio.get('firstName', ''),
+                        structured_fio.get('middleName', '')
+                    ]))
+
+                if not fio:
+                    continue
+
+                # Проверяем, не является ли этот руководитель текущим
+                start_date = head.get('firstDate') or head.get('date')
+                is_current = any(
+                    h['fio'] == fio and h['start_date'] == start_date
+                    for h in heads_to_process if h['is_active']
+                )
+
+                if not is_current:
+                    heads_to_process.append({
+                        'fio': fio,
+                        'inn': head.get('innfl'),
+                        'position': head.get('position'),
+                        'start_date': start_date,
+                        'end_date': None,
+                        'is_active': False
+                    })
+
+            logger.info(f"Total heads to process: {len(heads_to_process)}")
+
+            # Обрабатываем каждого руководителя
+            for idx, head_data in enumerate(heads_to_process):
+                logger.info(f"Processing head {idx + 1}/{len(heads_to_process)}: {head_data['fio']}")
+
+                # Создаем или получаем Head (уникальность по FIO)
+                head_obj, head_created = Head.objects.get_or_create(
+                    fio=head_data['fio'],
+                    defaults={
+                        'inn': head_data.get('inn'),
+                    }
+                )
+
+                logger.info(f"Head {'created' if head_created else 'found'}: {head_obj.fio} (ID: {head_obj.id})")
+
+                # Если Head уже существует, обновляем ИНН если он был пустой
+                if not head_created and head_data.get('inn') and not head_obj.inn:
+                    head_obj.inn = head_data['inn']
+                    head_obj.save()
+                    logger.info(f"Updated INN for head {head_obj.fio}")
+
+                # Парсим даты
+                start_date = None
+                if head_data.get('start_date'):
+                    start_date = parse_date(head_data['start_date'])
+
+                end_date = None
+                if head_data.get('end_date'):
+                    end_date = parse_date(head_data['end_date'])
+
+                # Создаем или обновляем CompanyHead
+                company_head, ch_created = CompanyHead.objects.update_or_create(
+                    company=company,
+                    head=head_obj,
+                    start_date=start_date,
+                    defaults={
+                        'end_date': end_date,
+                        'is_active': head_data.get('is_active', False)
+                    }
+                )
+
+                ch_action = "Created" if ch_created else "Updated"
+                logger.info(
+                    f"{ch_action} CompanyHead (ID: {company_head.id}): "
+                    f"{head_obj.fio} -> {company.name} "
+                    f"(active: {company_head.is_active}, from: {start_date})"
+                )
+
+            logger.info(f"Successfully processed {len(heads_to_process)} heads for company {company.name}")
+
+        except Exception as e:
+            logger.error(f"Error processing heads for company {company.inn}: {e}", exc_info=True)
+            # Не поднимаем исключение, чтобы не прерывать создание компании
+    def create_or_update_company_old(cls, inn: str, generate_pdf: bool = False) -> Optional[Company] or Optional[Dict]:
         """
         Создание или обновление компании по ИНН
 
@@ -171,11 +405,7 @@ class CompanyService:
                 logger.error(f"Cannot parse founding_date for INN {inn}")
                 return {"success": False, "message": "Cannot parse founding_date for INN"}
 
-            # ФИО директора
-            director_name = cls._extract_director_name(kontur_data)
 
-            if not director_name:
-                director_name = 'Не указан'
 
             # Уставной капитал
             authorized_capital = cls._extract_authorized_capital(kontur_data)
@@ -189,7 +419,7 @@ class CompanyService:
                 defaults={
                     'name': company_name,
                     'company_type': company_type,
-                    'director_name': director_name,
+
                     'founding_date': founding_date,
                     'authorized_capital': authorized_capital,
                 }

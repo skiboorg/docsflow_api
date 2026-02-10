@@ -9,7 +9,7 @@ from django.contrib.auth import get_user_model
 from datetime import  datetime
 
 from apps.common.models import BaseModel
-
+from apps.company.models import CompanyHead
 
 User = get_user_model()
 
@@ -33,7 +33,7 @@ class DocumentVersion(BaseModel):
                                   help_text='Дата начала действия версии')
     valid_until = models.DateField('Действует до', null=True, blank=True,
                                    help_text='Дата окончания действия версии')
-
+    head = models.ForeignKey(CompanyHead, on_delete=models.CASCADE,null=True, blank=True)
     # Ответственные лица
     uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE,
                                     related_name='uploaded_document_versions',

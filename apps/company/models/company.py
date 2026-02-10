@@ -22,7 +22,7 @@ class Company(BaseModel):
                                      null=True,
                                      blank=True,
                                      verbose_name='Тип компании')
-    director_name = models.CharField('ФИО директора', max_length=255)
+
     founding_date = models.DateField('Дата открытия')
     authorized_capital = models.DecimalField('Уставной капитал', max_digits=15, decimal_places=2)
 

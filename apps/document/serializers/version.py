@@ -5,14 +5,14 @@ from rest_framework import serializers
 from apps.document.models.version import DocumentVersion
 from apps.company.serializers.summary import STATUS_META
 from apps.user.serializers.user_serializers import UserShortSerializer
-
+from apps.company.serializers.head import CompanyHeadSerializer
 class DocumentVersionSerializer(serializers.ModelSerializer):
     document = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
     file_size = serializers.CharField(read_only=True)
     uploaded_by = UserShortSerializer(read_only=True)
     reviewed_by = UserShortSerializer(read_only=True)
-
+    head = CompanyHeadSerializer(read_only=True)
     def get_document(self, instance):
         from apps.document.serializers.detail import DocumentDetailShortSerializer
         return DocumentDetailShortSerializer(instance.document).data
@@ -73,6 +73,7 @@ class DocumentVersionSerializer(serializers.ModelSerializer):
             "version",
             "file",
             "file_size",
+            "head",
 
             # Статус
             "status",

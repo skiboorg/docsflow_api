@@ -119,10 +119,15 @@ class DocumentVersionViewSet(viewsets.ModelViewSet):
         valid_until = request.data.get("valid_until",None)
         is_current = request.data.get("is_current",False)
         comment = request.data.get("comment",None)
+        head = request.data.get("head",None)
         if new_type:
             obj.document.document_type_id = new_type.get("id")
         if comment:
             obj.comment = comment
+
+        if head:
+            print(head)
+            obj.head_id = head.get("id")
         obj.valid_from = valid_from
         obj.valid_until = valid_until
         obj.is_current = is_current

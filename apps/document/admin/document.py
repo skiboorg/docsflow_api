@@ -83,7 +83,7 @@ class DocumentVersionAdmin(admin.ModelAdmin):
             'fields': ('upload_date', 'valid_from', 'valid_until'),
         }),
         ('Ответственные', {
-            'fields': ('uploaded_by', 'reviewed_by', 'review_date'),
+            'fields': ('head','uploaded_by', 'reviewed_by', 'review_date'),
         }),
         ('Комментарии', {
             'fields': ('comment', 'rejection_reason'),

@@ -103,6 +103,7 @@ class CompanyViewSet(viewsets.ModelViewSet):
         """Обновление компании"""
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
+        print(request.data)
         serializer = self.get_serializer(
             instance,
             data=request.data,

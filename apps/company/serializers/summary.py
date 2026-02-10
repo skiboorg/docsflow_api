@@ -35,7 +35,6 @@ class CompanySummaryRowSerializer(serializers.Serializer):
             'uuid': obj.uuid,
             'name': obj.name,
             'inn': obj.inn,
-            'director_name': obj.director_name,
             'pdf_report': pdf_url,
             'founding_date': obj.founding_date,
             'authorized_capital': obj.authorized_capital,
